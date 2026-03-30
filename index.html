@@ -1,70 +1,86 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Checkers WebApp</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #222; color: white; }
-        #board { display: grid; grid-template-columns: repeat(8, 40px); grid-template-rows: repeat(8, 40px); border: 2px solid #555; }
-        .cell { width: 40px; height: 40px; display: flex; justify-content: center; align-items: center; cursor: pointer; }
-        .black { background-color: #769656; }
-        .white { background-color: #eeeed2; }
-        .checker { width: 30px; height: 30px; border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
-        .red-checker { background: #cc0000; }
+        body { background: #1a1a1a; color: white; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
+        #board { display: grid; grid-template-columns: repeat(8, 45px); grid-template-rows: repeat(8, 45px); border: 3px solid #555; touch-action: manipulation; }
+        .cell { width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; }
+        .white-cell { background: #eeeed2; }
+        .black-cell { background: #769656; }
+        .piece { width: 35px; height: 35px; border-radius: 50%; transition: transform 0.2s; }
+        .white-p { background: #fff; border: 1px solid #ccc; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+        .black-p { background: #333; border: 1px solid #000; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+        #status { margin-bottom: 15px; font-family: sans-serif; font-weight: bold; }
     </style>
 </head>
 <body>
+    <div id="status">Загрузка...</div>
+    <div id="board"></div>
 
-<div id="board"></div>
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
 
-<script>
-    const tg = window.Telegram.WebApp;
-    tg.expand(); // Разворачиваем на весь экран
+        // --- ВСТАВЬ СВОЮ ССЫЛКУ ТУТ ---
+        const WEBHOOK_URL = 'ТУТ_ТВОЯ_ССЫЛКА_ИЗ_N8N'; 
+        // ------------------------------
 
-    const boardElement = document.getElementById('board');
-    const webhookUrl = 'https://artpashaai.app.n8n.cloud/workflow/CUnuYZAR1gleHa16/webhook/checkers-move'; // Ваш URL
+        document.getElementById('status').innerText = "Игрок: " + (tg.initDataUnsafe.user?.first_name || "Guest");
 
-    // Создаем доску 8x8
-    for (let r = 0; r < 8; r++) {
-        for (let c = 0; c < 8; c++) {
-            const cell = document.createElement('div');
-            cell.className = `cell ${(r + c) % 2 === 0 ? 'white' : 'black'}`;
-            
-            // Добавляем тестовую шашку на черные клетки первых рядов
-            if ((r + c) % 2 !== 0 && r < 3) {
-                const checker = document.createElement('div');
-                checker.className = 'checker red-checker';
-                cell.appendChild(checker);
+        let gameState = [
+            [0,2,0,2,0,2,0,2], [2,0,2,0,2,0,2,0], [0,2,0,2,0,2,0,2],
+            [0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0],
+            [1,0,1,0,1,0,1,0], [0,1,0,1,0,1,0,1], [1,0,1,0,1,0,1,0]
+        ];
+
+        function drawBoard() {
+            const boardElement = document.getElementById('board');
+            boardElement.innerHTML = '';
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = `cell ${(r + c) % 2 === 0 ? 'white-cell' : 'black-cell'}`;
+                    cell.onclick = () => onCellClick(r, c);
+                    
+                    if (gameState[r][c] !== 0) {
+                        const piece = document.createElement('div');
+                        piece.className = `piece ${gameState[r][c] === 1 ? 'white-p' : 'black-p'}`;
+                        cell.appendChild(piece);
+                    }
+                    boardElement.appendChild(cell);
+                }
             }
-
-            cell.onclick = () => sendMove(r, c);
-            boardElement.appendChild(cell);
         }
-    }
 
-    async function sendMove(row, col) {
-        const data = {
-            user_id: tg.initDataUnsafe.user?.id || 12345, // ID пользователя из Telegram
-            move: { row: row, col: col },
-            callback_query_id: tg.initDataUnsafe.query_id // Важно для ответа через answerCallbackQuery
-        };
+        async function onCellClick(r, c) {
+            tg.HapticFeedback.impactOccurred('light');
+            document.getElementById('status').innerText = `Клик: [${r},${c}] - Отправка...`;
 
-        try {
-            const response = await fetch(webhookUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-
-            if (response.ok) {
-                console.log('Данные отправлены');
+            try {
+                const response = await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: tg.initDataUnsafe.user?.id,
+                        username: tg.initDataUnsafe.user?.username,
+                        move: { row: r, col: c },
+                        current_board: gameState
+                    })
+                });
+                
+                if (response.ok) {
+                    document.getElementById('status').innerText = `N8N принял ход [${r},${c}]`;
+                }
+            } catch (e) {
+                document.getElementById('status').innerText = "Ошибка n8n: " + e.message;
             }
-        } catch (error) {
-            console.error('Ошибка отправки:', error);
         }
-    }
-</script>
+
+        drawBoard();
+    </script>
 </body>
 </html>
