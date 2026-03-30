@@ -1,84 +1,70 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <title>Checkers</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkers WebApp</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #222; color: white; }
+        #board { display: grid; grid-template-columns: repeat(8, 40px); grid-template-rows: repeat(8, 40px); border: 2px solid #555; }
+        .cell { width: 40px; height: 40px; display: flex; justify-content: center; align-items: center; cursor: pointer; }
+        .black { background-color: #769656; }
+        .white { background-color: #eeeed2; }
+        .checker { width: 30px; height: 30px; border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+        .red-checker { background: #cc0000; }
+    </style>
 </head>
 <body>
-
-<h2 id="game-status">Сделайте ход</h2>
 
 <div id="board"></div>
 
 <script>
-const WEBHOOK_URL = "https://artpashaai.app.n8n.cloud/webhook/checkers-ui"; // ← вставь сюда
+    const tg = window.Telegram.WebApp;
+    tg.expand(); // Разворачиваем на весь экран
 
-const userId = 400783020;
+    const boardElement = document.getElementById('board');
+    const webhookUrl = 'https://artpashaai.app.n8n.cloud/workflow/CUnuYZAR1gleHa16/webhook/checkers-move'; // Ваш URL
 
-let board = [
-  [0,1,0,1],
-  [1,0,1,0],
-  [0,0,0,0],
-  [2,0,2,0]
-];
+    // Создаем доску 8x8
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            const cell = document.createElement('div');
+            cell.className = `cell ${(r + c) % 2 === 0 ? 'white' : 'black'}`;
+            
+            // Добавляем тестовую шашку на черные клетки первых рядов
+            if ((r + c) % 2 !== 0 && r < 3) {
+                const checker = document.createElement('div');
+                checker.className = 'checker red-checker';
+                cell.appendChild(checker);
+            }
 
-function renderBoard() {
-  const boardDiv = document.getElementById("board");
-  boardDiv.innerHTML = "";
-
-  board.forEach((row, i) => {
-    const rowDiv = document.createElement("div");
-
-    row.forEach((cell, j) => {
-      const btn = document.createElement("button");
-      btn.style.width = "60px";
-      btn.style.height = "60px";
-
-      if (cell === 1) btn.innerText = "⚪";
-      else if (cell === 2) btn.innerText = "⚫";
-
-      btn.onclick = () => handleClick(i, j, cell);
-
-      rowDiv.appendChild(btn);
-    });
-
-    boardDiv.appendChild(rowDiv);
-  });
-}
-
-async function handleClick(row, col, cellValue) {
-  try {
-    const res = await fetch(WEBHOOK_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        user_id: userId,
-        row,
-        col,
-        cell: {
-          type: cellValue === 0 ? "empty" : "piece",
-          owner: cellValue === 1 ? "me" : cellValue === 2 ? "enemy" : null
+            cell.onclick = () => sendMove(r, c);
+            boardElement.appendChild(cell);
         }
-      })
-    });
+    }
 
-    const data = await res.json();
-    showMessage(data.message);
+    async function sendMove(row, col) {
+        const data = {
+            user_id: tg.initDataUnsafe.user?.id || 12345, // ID пользователя из Telegram
+            move: { row: row, col: col },
+            callback_query_id: tg.initDataUnsafe.query_id // Важно для ответа через answerCallbackQuery
+        };
 
-  } catch (e) {
-    showMessage("❌ Ошибка соединения");
-    console.error(e);
-  }
-}
+        try {
+            const response = await fetch(webhookUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
 
-function showMessage(text) {
-  document.getElementById("game-status").innerText = text;
-}
-
-renderBoard();
+            if (response.ok) {
+                console.log('Данные отправлены');
+            }
+        } catch (error) {
+            console.error('Ошибка отправки:', error);
+        }
+    }
 </script>
-
 </body>
 </html>
