@@ -11,11 +11,10 @@
 <div id="board"></div>
 
 <script>
-const WEBHOOK_URL = "https://artpashaai.app.n8n.cloud/webhook-test/checkers-ui"; // ← ВСТАВЬ СЮДА
+const WEBHOOK_URL = "https://artpashaai.app.n8n.cloud/webhook-test/checkers-ui"; // ← вставь сюда
 
 const userId = 400783020;
 
-// пример доски (0 = пусто, 1 = ты, 2 = враг)
 let board = [
   [0,1,0,1],
   [1,0,1,0],
@@ -31,17 +30,16 @@ function renderBoard() {
     const rowDiv = document.createElement("div");
 
     row.forEach((cell, j) => {
-      const cellDiv = document.createElement("button");
+      const btn = document.createElement("button");
+      btn.style.width = "60px";
+      btn.style.height = "60px";
 
-      cellDiv.style.width = "50px";
-      cellDiv.style.height = "50px";
+      if (cell === 1) btn.innerText = "⚪";
+      else if (cell === 2) btn.innerText = "⚫";
 
-      if (cell === 1) cellDiv.innerText = "⚪";
-      else if (cell === 2) cellDiv.innerText = "⚫";
+      btn.onclick = () => handleClick(i, j, cell);
 
-      cellDiv.onclick = () => handleClick(i, j, cell);
-
-      rowDiv.appendChild(cellDiv);
+      rowDiv.appendChild(btn);
     });
 
     boardDiv.appendChild(rowDiv);
@@ -49,27 +47,30 @@ function renderBoard() {
 }
 
 async function handleClick(row, col, cellValue) {
-  const data = {
-    user_id: userId,
-    row,
-    col,
-    cell: {
-      type: cellValue === 0 ? "empty" : "piece",
-      owner: cellValue === 1 ? "me" : cellValue === 2 ? "enemy" : null
-    }
-  };
+  try {
+    const res = await fetch(WEBHOOK_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        row,
+        col,
+        cell: {
+          type: cellValue === 0 ? "empty" : "piece",
+          owner: cellValue === 1 ? "me" : cellValue === 2 ? "enemy" : null
+        }
+      })
+    });
 
-  const res = await fetch(WEBHOOK_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(data)
-  });
+    const data = await res.json();
+    showMessage(data.message);
 
-  const json = await res.json();
-
-  showMessage(json.message);
+  } catch (e) {
+    showMessage("❌ Ошибка соединения");
+    console.error(e);
+  }
 }
 
 function showMessage(text) {
