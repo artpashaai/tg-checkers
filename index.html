@@ -88,19 +88,20 @@
             if (response.ok) {
                 const data = await response.json();
                 
-                // Если n8n вернул новую доску — обновляем её
-                if (data.new_board) {
-                    gameState = data.new_board;
-                    selectedCell = null; // Сбрасываем выбор
+                // Если ход завершен или пришла доска
+                if (data.new_board || data.status === "move_completed") {
+                    selectedCell = null; // Убираем прозрачность с шашки
                     document.getElementById('status').innerText = "Ход выполнен!";
+                    // Здесь в будущем будет: gameState = data.new_board;
                 } 
-                // Если n8n подтвердил выбор шашки (первый клик)
+                // Если это только выбор шашки
                 else if (data.status === "selected") {
                     selectedCell = { r, c };
                     document.getElementById('status').innerText = "Шашка выбрана";
                 }
 
-                drawBoard(); // Перерисовываем доску
+                drawBoard(); 
+            }; // Перерисовываем доску
             }
         } catch (e) {
             document.getElementById('status').innerText = "Ошибка: " + e.message;
