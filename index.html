@@ -6,12 +6,12 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         body { background: #1a1a1a; color: white; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; font-family: sans-serif; }
-        #status { margin-bottom: 15px; font-weight: bold; color: #aaa; }
+        #status { margin-bottom: 15px; font-weight: bold; color: #aaa; min-height: 20px; }
         #board { display: grid; grid-template-columns: repeat(8, 45px); grid-template-rows: repeat(8, 45px); border: 3px solid #555; touch-action: manipulation; }
         .cell { width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; }
         .white-cell { background: #eeeed2; }
         .black-cell { background: #769656; }
-        .piece { width: 35px; height: 35px; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+        .piece { width: 35px; height: 35px; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3); transition: all 0.2s; }
         .white-p { background: #fff; border: 1px solid #ccc; }
         .black-p { background: #333; border: 1px solid #000; }
     </style>
@@ -26,6 +26,7 @@
     tg.ready();
     tg.expand();
 
+    // Твой рабочий URL (убедись, что n8n в режиме Active/Published)
     const WEBHOOK_URL = 'https://artpashaai.app.n8n.cloud/webhook/checkers-move';
 
     document.getElementById('status').innerText = "Игрок: " + (tg.initDataUnsafe.user?.first_name || "Гость");
@@ -41,10 +42,11 @@
         [1, 0, 1, 0, 1, 0, 1, 0]
     ];
 
-    let selectedCell = null; // Храним локально выбранную клетку
+    let selectedCell = null; 
 
     function drawBoard() {
         const boardElement = document.getElementById('board');
+        if (!boardElement) return;
         boardElement.innerHTML = '';
 
         for (let r = 0; r < 8; r++) {
@@ -53,14 +55,13 @@
                 cell.className = `cell ${(r + c) % 2 === 0 ? 'white-cell' : 'black-cell'}`;
                 cell.onclick = () => onCellClick(r, c);
 
-                if (gameState[r][c] !== 0) {
+                if (gameState[r] && gameState[r][c] !== 0) {
                     const piece = document.createElement('div');
                     piece.className = `piece ${gameState[r][c] === 1 ? 'white-p' : 'black-p'}`;
                     
-                    // Если эта шашка выбрана — делаем её полупрозрачной
                     if (selectedCell && selectedCell.r === r && selectedCell.c === c) {
                         piece.style.opacity = "0.5";
-                        piece.style.transform = "scale(1.2)";
+                        piece.style.transform = "scale(1.1)";
                     }
                     
                     cell.appendChild(piece);
@@ -71,7 +72,7 @@
     }
 
     async function onCellClick(r, c) {
-        tg.HapticFeedback.impactOccurred('light');
+        if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
         document.getElementById('status').innerText = `Клик: [${r},${c}]...`;
 
         try {
@@ -85,30 +86,37 @@
                 })
             });
 
-            if (response.ok) {
-                const data = await response.json();
-                
-                // Если ход завершен или пришла доска
-                if (data.new_board || data.status === "move_completed") {
-                    selectedCell = null; // Убираем прозрачность с шашки
-                    document.getElementById('status').innerText = "Ход выполнен!";
-                    // Здесь в будущем будет: gameState = data.new_board;
-                } 
-                // Если это только выбор шашки
-                else if (data.status === "selected") {
-                    selectedCell = { r, c };
-                    document.getElementById('status').innerText = "Шашка выбрана";
-                }
+            if (!response.ok) throw new Error('Ошибка сервера n8n');
 
-                drawBoard(); 
-            }; // Перерисовываем доску
+            const data = await response.json();
+            
+            // 1. Проверяем, пришла ли новая доска (массив)
+            if (data.new_board && Array.isArray(data.new_board)) {
+                gameState = data.new_board;
+                selectedCell = null;
+                document.getElementById('status').innerText = "Ход выполнен!";
+            } 
+            // 2. Если n8n подтвердил выбор шашки (первый клик)
+            else if (data.status === "selected") {
+                selectedCell = { r, c };
+                document.getElementById('status').innerText = "Шашка выбрана";
             }
+            // 3. Если ход завершен (второй клик), но доску n8n пока не шлет
+            else if (data.status === "move_completed") {
+                selectedCell = null;
+                document.getElementById('status').innerText = "Ход записан!";
+            }
+
+            drawBoard(); 
+
         } catch (e) {
+            console.error(e);
             document.getElementById('status').innerText = "Ошибка: " + e.message;
         }
     }
 
+    // Инициализация доски при загрузке
     drawBoard();
-</script>
+    </script>
 </body>
 </html>
