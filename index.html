@@ -1,86 +1,71 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { background: #1a1a1a; color: white; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; font-family: sans-serif; }
-        #status { margin-bottom: 15px; font-weight: bold; color: #aaa; min-height: 20px; }
+        body { background: #1a1a1a; color: white; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
         #board { display: grid; grid-template-columns: repeat(8, 45px); grid-template-rows: repeat(8, 45px); border: 3px solid #555; touch-action: manipulation; }
         .cell { width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; }
         .white-cell { background: #eeeed2; }
         .black-cell { background: #769656; }
-        .piece { width: 35px; height: 35px; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3); transition: all 0.2s; }
-        .white-p { background: #fff; border: 1px solid #ccc; }
-        .black-p { background: #333; border: 1px solid #000; }
+        .piece { width: 35px; height: 35px; border-radius: 50%; transition: transform 0.2s; }
+        .white-p { background: #fff; border: 1px solid #ccc; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+        .black-p { background: #333; border: 1px solid #000; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+        #status { margin-bottom: 15px; font-family: sans-serif; font-weight: bold; }
     </style>
 </head>
 <body>
-
-    <div id="status">Загрузка игры...</div>
+    <div id="status">Загрузка...</div>
     <div id="board"></div>
 
     <script>
-    const tg = window.Telegram.WebApp;
-    tg.ready();
-    tg.expand();
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
 
-    // Твой рабочий URL (убедись, что n8n в режиме Active/Published)
-    const WEBHOOK_URL = 'https://artpashaai.app.n8n.cloud/webhook-test/checkers-move';
+        // Тестовый URL для отладки
+        const WEBHOOK_URL = 'https://artpashaai.app.n8n.cloud/webhook-test/checkers-move'; 
 
-    document.getElementById('status').innerText = "Игрок: " + (tg.initDataUnsafe.user?.first_name || "Гость");
+        document.getElementById('status').innerText = "Игрок: " + (tg.initDataUnsafe.user?.first_name || "Guest");
 
-    let gameState = [
-        [0, 2, 0, 2, 0, 2, 0, 2],
-        [2, 0, 2, 0, 2, 0, 2, 0],
-        [0, 2, 0, 2, 0, 2, 0, 2],
-        [0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0],
-        [1, 0, 1, 0, 1, 0, 1, 0],
-        [0, 1, 0, 1, 0, 1, 0, 1],
-        [1, 0, 1, 0, 1, 0, 1, 0]
-    ];
+        let gameState = [
+            [0,2,0,2,0,2,0,2], [2,0,2,0,2,0,2,0], [0,2,0,2,0,2,0,2],
+            [0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0],
+            [1,0,1,0,1,0,1,0], [0,1,0,1,0,1,0,1], [1,0,1,0,1,0,1,0]
+        ];
 
-    let selectedCell = null; 
-
-    function drawBoard() {
-        const boardElement = document.getElementById('board');
-        if (!boardElement) return;
-        boardElement.innerHTML = '';
-
-        for (let r = 0; r < 8; r++) {
-            for (let c = 0; c < 8; c++) {
-                const cell = document.createElement('div');
-                cell.className = `cell ${(r + c) % 2 === 0 ? 'white-cell' : 'black-cell'}`;
-                cell.onclick = () => onCellClick(r, c);
-
-                if (gameState[r] && gameState[r][c] !== 0) {
-                    const piece = document.createElement('div');
-                    piece.className = `piece ${gameState[r][c] === 1 ? 'white-p' : 'black-p'}`;
-                    
-                    if (selectedCell && selectedCell.r === r && selectedCell.c === c) {
-                        piece.style.opacity = "0.5";
-                        piece.style.transform = "scale(1.1)";
+        function drawBoard() {
+            const boardElement = document.getElementById('board');
+            boardElement.innerHTML = '';
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = `cell ${(r + c) % 2 === 0 ? 'white-cell' : 'black-cell'}`;
+                    cell.onclick = () => onCellClick(r, c);
+                                        
+                    if (gameState[r][c] !== 0) {
+                        const piece = document.createElement('div');
+                        piece.className = `piece ${gameState[r][c] === 1 ? 'white-p' : 'black-p'}`;
+                        cell.appendChild(piece);
                     }
-                    
-                    cell.appendChild(piece);
+                    boardElement.appendChild(cell);
                 }
-                boardElement.appendChild(cell);
             }
         }
-    }
 
-    async function onCellClick(r, c) {
-        if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-        document.getElementById('status').innerText = `Клик: [${r},${c}]...`;
+        async function onCellClick(r, c) {
+            tg.HapticFeedback.impactOccurred('light');
+            const statusEl = document.getElementById('status');
+            statusEl.innerText = `Клик: [${r},${c}] - Отправка...`;
 
-        try {
+            try {
                 const response = await fetch(WEBHOOK_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        user_id: tg.initDataUnsafe.user?.id || 12345, // для тестов
+                        user_id: tg.initDataUnsafe.user?.id || 12345,
                         username: tg.initDataUnsafe.user?.username,
                         move: { row: r, col: c },
                         current_board: gameState
@@ -88,25 +73,21 @@
                 });
 
                 if (response.ok) {
-                    const result = await response.json(); // Читаем ответ от n8n
+                    const result = await response.json();
                     
-                    // Если n8n прислал сообщение (как в Respond to Webhook1)
+                    // Выводим сообщение из n8n, если оно есть
                     if (result.message) {
-                        document.getElementById('status').innerText = result.message;
+                        statusEl.innerText = result.message;
+                    } else if (result.status === "move_completed") {
+                        statusEl.innerText = "Ход выполнен";
+                    } else {
+                        statusEl.innerText = "Данные приняты";
                     }
-                    
-                    // Если n8n прислал новую доску (для Шага 10)
+
+                    // Если n8n прислал обновленную расстановку — обновляем экран
                     if (result.new_board) {
                         gameState = result.new_board;
                         drawBoard();
                     }
-                }
-            } catch (e) {
-                document.getElementById('status').innerText = "Ошибка n8n: " + e.message;
-            }
-
-    // Инициализация доски при загрузке
-    drawBoard();
-    </script>
-</body>
-</html>
+                } else {
+                    statusEl.innerText = "Ошибка сервера: " + response.status;
