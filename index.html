@@ -6,15 +6,15 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         body { background: #1a1a1a; color: white; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; font-family: sans-serif; }
-        #board { display: grid; grid-template-columns: repeat(8, 45px); grid-template-rows: repeat(8, 45px); border: 5px solid #444; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        #board { display: grid; grid-template-columns: repeat(8, 45px); grid-template-rows: repeat(8, 45px); border: 4px solid #555; }
         .cell { width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; position: relative; }
         .white-cell { background: #eeeed2; }
         .black-cell { background: #769656; }
-        .piece { width: 36px; height: 36px; border-radius: 50%; transition: all 0.2s; z-index: 2; cursor: pointer; }
-        .white-p { background: #ffffff; border: 1px solid #999; box-shadow: inset 0 -3px 5px rgba(0,0,0,0.2); }
-        .black-p { background: #333333; border: 1px solid #000; box-shadow: inset 0 2px 5px rgba(255,255,255,0.1); }
+        .piece { width: 36px; height: 36px; border-radius: 50%; z-index: 2; transition: transform 0.2s; }
+        .white-p { background: #fff; border: 1px solid #ccc; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+        .black-p { background: #333; border: 1px solid #000; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
         .selected { outline: 4px solid yellow; outline-offset: -4px; z-index: 10; }
-        #status { margin-bottom: 20px; font-weight: bold; color: #00ff00; text-align: center; min-height: 24px; font-size: 16px; }
+        #status { margin-bottom: 15px; font-weight: bold; color: #00ff00; height: 20px; text-align: center; }
     </style>
 </head>
 <body>
@@ -42,13 +42,8 @@
                 for (let c = 0; c < 8; c++) {
                     const cell = document.createElement('div');
                     cell.className = `cell ${(r + c) % 2 === 0 ? 'white-cell' : 'black-cell'}`;
-                    
-                    if (selected && selected.r === r && selected.c === c) {
-                        cell.classList.add('selected');
-                    }
-                    
+                    if (selected && selected.r === r && selected.c === c) cell.classList.add('selected');
                     cell.onclick = () => onCellClick(r, c);
-                    
                     if (gameState[r][c] !== 0) {
                         const p = document.createElement('div');
                         p.className = `piece ${gameState[r][c] === 1 ? 'white-p' : 'black-p'}`;
@@ -61,8 +56,8 @@
 
         async function onCellClick(r, c) {
             const st = document.getElementById('status');
-            st.innerText = "Связь с n8n...";
-            st.style.color = "#00ff00";
+            st.innerText = "Обмен данными...";
+            tg.HapticFeedback.impactOccurred('light');
 
             try {
                 const res = await fetch(WEBHOOK_URL, {
@@ -76,11 +71,9 @@
                 });
 
                 const data = await res.json();
-                console.log("N8N Data:", data);
-
+                
                 if (data.message) {
                     st.innerText = data.message;
-                    // Если выбрали шашку
                     if (data.message.toLowerCase().includes("выбрана")) {
                         selected = {r, c};
                     } else {
@@ -89,24 +82,21 @@
                 }
 
                 if (data.new_board) {
-                    // Обработка любого формата доски
-                    let nb = data.new_board;
-                    gameState = (typeof nb === 'string') ? JSON.parse(nb) : nb;
-                    selected = null;
-                    st.innerText = "Ход выполнен успешно!";
+                    // Парсим, если n8n прислал строку вместо объекта
+                    gameState = typeof data.new_board === 'string' ? JSON.parse(data.new_board) : data.new_board;
+                    st.innerText = "Ход выполнен!";
                 }
                 
                 drawBoard();
 
             } catch (e) {
-                st.innerText = "Ошибка n8n (проверь узел Respond)";
-                st.style.color = "#ff4444";
-                console.error("Full error:", e);
+                st.innerText = "Ошибка n8n";
+                console.error(e);
             }
         }
 
-        document.getElementById('status').innerText = "Ваш ход";
         drawBoard();
+        document.getElementById('status').innerText = "Ваш ход";
     </script>
 </body>
 </html>
