@@ -13,7 +13,7 @@
         .piece { width: 35px; height: 35px; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.5); }
         .white-p { background: #fff; border: 1px solid #ccc; }
         .black-p { background: #333; border: 1px solid #000; }
-        #status { margin-bottom: 15px; font-weight: bold; text-align: center; color: #4caf50; min-height: 20px; }
+        #status { margin-bottom: 15px; font-weight: bold; text-align: center; color: #4caf50; min-height: 20px; font-size: 14px; }
     </style>
 </head>
 <body>
@@ -26,6 +26,7 @@
 
         const WEBHOOK_URL = 'https://artpashaai.app.n8n.cloud/webhook-test/checkers-move';
 
+        // Начальное состояние (синхронизировано с таблицей)
         let gameState = [
             [0,2,0,2,0,2,0,2], [2,0,2,0,2,0,2,0], [0,2,0,2,0,2,0,2],
             [0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0],
@@ -40,46 +41,4 @@
                     const cell = document.createElement('div');
                     cell.className = `cell ${(r + c) % 2 === 0 ? 'white-cell' : 'black-cell'}`;
                     cell.onclick = () => onCellClick(r, c);
-                    if (gameState[r] && gameState[r][c] !== 0) {
-                        const piece = document.createElement('div');
-                        piece.className = `piece ${gameState[r][c] === 1 ? 'white-p' : 'black-p'}`;
-                        cell.appendChild(piece);
-                    }
-                    boardElement.appendChild(cell);
-                }
-            }
-        }
-
-        async function onCellClick(r, c) {
-            tg.HapticFeedback.impactOccurred('light');
-            const statusLabel = document.getElementById('status');
-            statusLabel.innerText = "Обмен данными...";
-
-            try {
-                const response = await fetch(WEBHOOK_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: tg.initDataUnsafe.user?.id || 12345, move: { row: r, col: c } })
-                });
-
-                const data = await response.json();
-                let newBoard = data.new_board;
-
-                // Если n8n прислал строку вместо массива — парсим её
-                if (typeof newBoard === 'string') newBoard = JSON.parse(newBoard);
-
-                if (newBoard && Array.isArray(newBoard)) {
-                    gameState = newBoard;
-                    drawBoard();
-                    statusLabel.innerText = data.message || "Ход принят";
-                } else {
-                    statusLabel.innerText = "Ошибка: Доска пуста";
-                }
-            } catch (e) {
-                statusLabel.innerText = "Ошибка: " + e.message;
-            }
-        }
-        drawBoard();
-    </script>
-</body>
-</html>
+                    if (gameState[r] && gameState[r][c]
