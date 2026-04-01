@@ -76,40 +76,34 @@
         document.getElementById('status').innerText = `Клик: [${r},${c}]...`;
 
         try {
-            const response = await fetch(WEBHOOK_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    user_id: tg.initDataUnsafe.user?.id || 12345,
-                    move: { row: r, col: c },
-                    current_board: gameState
-                })
-            });
+                const response = await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: tg.initDataUnsafe.user?.id || 12345, // для тестов
+                        username: tg.initDataUnsafe.user?.username,
+                        move: { row: r, col: c },
+                        current_board: gameState
+                    })
+                });
 
-            if (response.ok) {
-                const data = await response.json();
-                console.log("Пришли данные:", data); // Увидим в консоли, если что
-
-                if (data.new_board && Array.isArray(data.new_board)) {
-                    gameState = data.new_board;
-                    selectedCell = null;
-                    document.getElementById('status').innerText = "Ход выполнен!";
-                } else {
-                    // Если доска не пришла, но ход в базе ок — просто сбросим выделение
-                    selectedCell = null;
-                    document.getElementById('status').innerText = "Обновление...";
+                if (response.ok) {
+                    const result = await response.json(); // Читаем ответ от n8n
+                    
+                    // Если n8n прислал сообщение (как в Respond to Webhook1)
+                    if (result.message) {
+                        document.getElementById('status').innerText = result.message;
+                    }
+                    
+                    // Если n8n прислал новую доску (для Шага 10)
+                    if (result.new_board) {
+                        gameState = result.new_board;
+                        drawBoard();
+                    }
                 }
-
-                drawBoard(); // Принудительно перерисовываем
+            } catch (e) {
+                document.getElementById('status').innerText = "Ошибка n8n: " + e.message;
             }
-
-            drawBoard(); 
-
-        } catch (e) {
-            console.error(e);
-            document.getElementById('status').innerText = "Ошибка: " + e.message;
-        }
-    }
 
     // Инициализация доски при загрузке
     drawBoard();
