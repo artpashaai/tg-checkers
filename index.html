@@ -41,4 +41,69 @@
                     const cell = document.createElement('div');
                     cell.className = `cell ${(r + c) % 2 === 0 ? 'white-cell' : 'black-cell'}`;
                     cell.onclick = () => onCellClick(r, c);
-                    if (gameState[r] && gameState[r][c]
+                    if (gameState[r] && gameState[r][c] !== 0) {
+                        const piece = document.createElement('div');
+                        piece.className = `piece ${gameState[r][c] === 1 ? 'white-p' : 'black-p'}`;
+                        cell.appendChild(piece);
+                    }
+                    boardElement.appendChild(cell);
+                }
+            }
+        }
+
+        async function onCellClick(r, c) {
+            tg.HapticFeedback.impactOccurred('light');
+            const statusLabel = document.getElementById('status');
+            statusLabel.innerText = "Обмен данными...";
+
+            try {
+                const response = await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        user_id: tg.initDataUnsafe.user?.id || 12345, 
+                        move: { row: r, col: c } 
+                    })
+                });
+
+                const data = await response.json();
+                
+                // Обработка текстового сообщения от n8n
+                if (data.message) {
+                    statusLabel.innerText = data.message;
+                } else {
+                    statusLabel.innerText = "Ход принят";
+                }
+
+                // Обработка обновления доски
+                if (data.new_board) {
+                    let newBoard = data.new_board;
+                    
+                    // Если n8n прислал строку — парсим
+                    if (typeof newBoard === 'string') {
+                        try {
+                            newBoard = JSON.parse(newBoard);
+                        } catch(e) {
+                            console.error("Ошибка парсинга board_json:", e);
+                        }
+                    }
+                    
+                    if (Array.isArray(newBoard)) {
+                        gameState = newBoard;
+                        drawBoard();
+                    }
+                }
+                
+                // Мы больше не выбрасываем ошибку "Доска пуста" здесь,
+                // чтобы не ломать игру на этапе выбора фигуры.
+
+            } catch (e) {
+                statusLabel.innerText = "Ошибка сети";
+                console.error("Fetch error:", e);
+            }
+        }
+
+        drawBoard();
+    </script>
+</body>
+</html>
