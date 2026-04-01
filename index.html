@@ -6,14 +6,15 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         body { background: #1a1a1a; color: white; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
-        #board { display: grid; grid-template-columns: repeat(8, 45px); grid-template-rows: repeat(8, 45px); border: 3px solid #555; touch-action: manipulation; }
-        .cell { width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; }
+        #board { display: grid; grid-template-columns: repeat(8, 45px); grid-template-rows: repeat(8, 45px); border: 3px solid #555; }
+        .cell { width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; position: relative; }
         .white-cell { background: #eeeed2; }
         .black-cell { background: #769656; }
-        .piece { width: 35px; height: 35px; border-radius: 50%; transition: transform 0.2s; cursor: pointer; }
-        .white-p { background: #fff; border: 1px solid #ccc; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
-        .black-p { background: #333; border: 1px solid #000; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
-        #status { margin-bottom: 15px; font-family: sans-serif; font-weight: bold; text-align: center; min-height: 20px; color: #00ff00; }
+        .piece { width: 35px; height: 35px; border-radius: 50%; transition: all 0.2s; z-index: 2; }
+        .white-p { background: #fff; border: 1px solid #ccc; }
+        .black-p { background: #333; border: 1px solid #000; }
+        .selected { outline: 3px solid yellow; outline-offset: -3px; z-index: 3; }
+        #status { margin-bottom: 15px; font-family: sans-serif; font-weight: bold; color: #00ff00; height: 20px; }
     </style>
 </head>
 <body>
@@ -23,8 +24,6 @@
     <script>
         const tg = window.Telegram.WebApp;
         tg.ready();
-        tg.expand();
-
         const WEBHOOK_URL = 'https://artpashaai.app.n8n.cloud/webhook-test/checkers-move'; 
 
         let gameState = [
@@ -32,34 +31,33 @@
             [0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0],
             [1,0,1,0,1,0,1,0], [0,1,0,1,0,1,0,1], [1,0,1,0,1,0,1,0]
         ];
+        let selected = null;
 
         function drawBoard() {
-            const boardElement = document.getElementById('board');
-            if (!boardElement) return;
-            boardElement.innerHTML = '';
+            const b = document.getElementById('board');
+            b.innerHTML = '';
             for (let r = 0; r < 8; r++) {
                 for (let c = 0; c < 8; c++) {
                     const cell = document.createElement('div');
                     cell.className = `cell ${(r + c) % 2 === 0 ? 'white-cell' : 'black-cell'}`;
+                    if (selected && selected.r === r && selected.c === c) cell.classList.add('selected');
                     cell.onclick = () => onCellClick(r, c);
-                                        
                     if (gameState[r][c] !== 0) {
-                        const piece = document.createElement('div');
-                        piece.className = `piece ${gameState[r][c] === 1 ? 'white-p' : 'black-p'}`;
-                        cell.appendChild(piece);
+                        const p = document.createElement('div');
+                        p.className = `piece ${gameState[r][c] === 1 ? 'white-p' : 'black-p'}`;
+                        cell.appendChild(p);
                     }
-                    boardElement.appendChild(cell);
+                    b.appendChild(cell);
                 }
             }
         }
 
         async function onCellClick(r, c) {
-            tg.HapticFeedback.impactOccurred('light');
-            const statusEl = document.getElementById('status');
-            statusEl.innerText = `Клик: [${r},${c}]...`;
+            const st = document.getElementById('status');
+            st.innerText = `Запрос [${r},${c}]...`;
 
             try {
-                const response = await fetch(WEBHOOK_URL, {
+                const res = await fetch(WEBHOOK_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -69,24 +67,33 @@
                     })
                 });
 
-                if (!response.ok) {
-                    statusEl.innerText = `Ошибка сервера: ${response.status}`;
-                    return;
+                const data = await res.json();
+                
+                if (data.message) {
+                    st.innerText = data.message;
+                    // Подсветка при выборе
+                    if (data.message.includes("выбрана")) {
+                        selected = {r, c};
+                    } else {
+                        selected = null;
+                    }
                 }
 
-                const rawData = await response.text();
-                try {
-                    const result = JSON.parse(rawData);
-                    
-                    if (result.message) {
-                        statusEl.innerText = result.message;
-                    }
+                if (data.new_board) {
+                    gameState = typeof data.new_board === 'string' ? JSON.parse(data.new_board) : data.new_board;
+                    st.innerText = "Ход выполнен!";
+                    selected = null;
+                }
+                
+                drawBoard(); // Перерисовываем всегда после ответа
 
-                    if (result.new_board) {
-                        // Обрабатываем и строку, и массив для надежности
-                        gameState = typeof result.new_board === 'string' 
-                            ? JSON.parse(result.new_board) 
-                            : result.new_board;
-                        drawBoard();
-                    }
-                } catch (parse
+            } catch (e) {
+                st.innerText = "Ошибка n8n (нет JSON)";
+                console.error(e);
+            }
+        }
+
+        drawBoard();
+    </script>
+</body>
+</html>
