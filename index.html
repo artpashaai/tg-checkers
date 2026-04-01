@@ -6,11 +6,11 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         body { background: #1a1a1a; color: white; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; font-family: sans-serif; }
-        #board { display: grid; grid-template-columns: repeat(8, 45px); grid-template-rows: repeat(8, 45px); border: 3px solid #555; }
-        .cell { width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; }
+        #board { display: grid; grid-template-columns: repeat(8, 45px); grid-template-rows: repeat(8, 45px); border: 3px solid #555; background: #555; }
+        .cell { width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
         .white-cell { background: #eeeed2; }
         .black-cell { background: #769656; }
-        .piece { width: 35px; height: 35px; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        .piece { width: 35px; height: 35px; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.5); pointer-events: none; }
         .white-p { background: #fff; border: 1px solid #ccc; }
         .black-p { background: #333; border: 1px solid #000; }
         #status { margin-bottom: 15px; font-weight: bold; text-align: center; color: #4caf50; min-height: 20px; font-size: 14px; }
@@ -22,11 +22,11 @@
 
     <script>
         const tg = window.Telegram.WebApp;
-        tg.ready(); tg.expand();
+        tg.ready(); 
+        tg.expand();
 
         const WEBHOOK_URL = 'https://artpashaai.app.n8n.cloud/webhook-test/checkers-move';
 
-        // Начальное состояние (синхронизировано с таблицей)
         let gameState = [
             [0,2,0,2,0,2,0,2], [2,0,2,0,2,0,2,0], [0,2,0,2,0,2,0,2],
             [0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0],
@@ -35,12 +35,17 @@
 
         function drawBoard() {
             const boardElement = document.getElementById('board');
+            if (!boardElement) return; // Защита: если элемент еще не создан
+            
             boardElement.innerHTML = '';
             for (let r = 0; r < 8; r++) {
                 for (let c = 0; c < 8; c++) {
                     const cell = document.createElement('div');
                     cell.className = `cell ${(r + c) % 2 === 0 ? 'white-cell' : 'black-cell'}`;
+                    cell.setAttribute('data-row', r);
+                    cell.setAttribute('data-col', c);
                     cell.onclick = () => onCellClick(r, c);
+                    
                     if (gameState[r] && gameState[r][c] !== 0) {
                         const piece = document.createElement('div');
                         piece.className = `piece ${gameState[r][c] === 1 ? 'white-p' : 'black-p'}`;
@@ -68,42 +73,28 @@
 
                 const data = await response.json();
                 
-                // Обработка текстового сообщения от n8n
                 if (data.message) {
                     statusLabel.innerText = data.message;
-                } else {
-                    statusLabel.innerText = "Ход принят";
                 }
 
-                // Обработка обновления доски
                 if (data.new_board) {
                     let newBoard = data.new_board;
-                    
-                    // Если n8n прислал строку — парсим
                     if (typeof newBoard === 'string') {
-                        try {
-                            newBoard = JSON.parse(newBoard);
-                        } catch(e) {
-                            console.error("Ошибка парсинга board_json:", e);
-                        }
+                        try { newBoard = JSON.parse(newBoard); } catch(e) {}
                     }
-                    
                     if (Array.isArray(newBoard)) {
                         gameState = newBoard;
                         drawBoard();
                     }
                 }
-                
-                // Мы больше не выбрасываем ошибку "Доска пуста" здесь,
-                // чтобы не ломать игру на этапе выбора фигуры.
-
             } catch (e) {
                 statusLabel.innerText = "Ошибка сети";
-                console.error("Fetch error:", e);
+                console.error(e);
             }
         }
 
-        drawBoard();
+        // Запуск отрисовки только после полной загрузки DOM
+        window.onload = drawBoard;
     </script>
 </body>
 </html>
