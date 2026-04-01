@@ -86,25 +86,21 @@
                 })
             });
 
-            if (!response.ok) throw new Error('Ошибка сервера n8n');
+            if (response.ok) {
+                const data = await response.json();
+                console.log("Пришли данные:", data); // Увидим в консоли, если что
 
-            const data = await response.json();
-            
-            // 1. Проверяем, пришла ли новая доска (массив)
-            if (data.new_board && Array.isArray(data.new_board)) {
-                gameState = data.new_board;
-                selectedCell = null;
-                document.getElementById('status').innerText = "Ход выполнен!";
-            } 
-            // 2. Если n8n подтвердил выбор шашки (первый клик)
-            else if (data.status === "selected") {
-                selectedCell = { r, c };
-                document.getElementById('status').innerText = "Шашка выбрана";
-            }
-            // 3. Если ход завершен (второй клик), но доску n8n пока не шлет
-            else if (data.status === "move_completed") {
-                selectedCell = null;
-                document.getElementById('status').innerText = "Ход записан!";
+                if (data.new_board && Array.isArray(data.new_board)) {
+                    gameState = data.new_board;
+                    selectedCell = null;
+                    document.getElementById('status').innerText = "Ход выполнен!";
+                } else {
+                    // Если доска не пришла, но ход в базе ок — просто сбросим выделение
+                    selectedCell = null;
+                    document.getElementById('status').innerText = "Обновление...";
+                }
+
+                drawBoard(); // Принудительно перерисовываем
             }
 
             drawBoard(); 
