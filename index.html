@@ -6,24 +6,23 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         body { background: #1a1a1a; color: white; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
-        #board { display: grid; grid-template-columns: repeat(8, 45px); grid-template-rows: repeat(8, 45px); border: 3px solid #555; touch-action: manipulation; }
+        #board { display: grid; grid-template-columns: repeat(8, 45px); grid-template-rows: repeat(8, 45px); border: 3px solid #555; }
         .cell { width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; }
         .white-cell { background: #eeeed2; }
         .black-cell { background: #769656; }
-        .piece { width: 35px; height: 35px; border-radius: 50%; transition: transform 0.2s; }
-        .white-p { background: #fff; border: 1px solid #ccc; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
-        .black-p { background: #333; border: 1px solid #000; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
-        #status { margin-bottom: 15px; font-family: sans-serif; font-weight: bold; min-height: 20px; }
+        .piece { width: 35px; height: 35px; border-radius: 50%; }
+        .white-p { background: #fff; border: 1px solid #ccc; }
+        .black-p { background: #333; border: 1px solid #000; }
+        #status { margin-bottom: 15px; font-family: sans-serif; height: 20px; }
     </style>
 </head>
 <body>
-    <div id="status">Загрузка...</div>
+    <div id="status">Готов к игре</div>
     <div id="board"></div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.ready();
-        tg.expand();
 
         const WEBHOOK_URL = 'https://artpashaai.app.n8n.cloud/webhook-test/checkers-move'; 
 
@@ -34,58 +33,46 @@
         ];
 
         function drawBoard() {
-            const boardElement = document.getElementById('board');
-            if (!boardElement) return;
-            boardElement.innerHTML = '';
+            const b = document.getElementById('board');
+            b.innerHTML = '';
             for (let r = 0; r < 8; r++) {
                 for (let c = 0; c < 8; c++) {
                     const cell = document.createElement('div');
                     cell.className = `cell ${(r + c) % 2 === 0 ? 'white-cell' : 'black-cell'}`;
                     cell.onclick = () => onCellClick(r, c);
-                                        
                     if (gameState[r][c] !== 0) {
-                        const piece = document.createElement('div');
-                        piece.className = `piece ${gameState[r][c] === 1 ? 'white-p' : 'black-p'}`;
-                        cell.appendChild(piece);
+                        const p = document.createElement('div');
+                        p.className = `piece ${gameState[r][c] === 1 ? 'white-p' : 'black-p'}`;
+                        cell.appendChild(p);
                     }
-                    boardElement.appendChild(cell);
+                    b.appendChild(cell);
                 }
             }
         }
 
         async function onCellClick(r, c) {
-            tg.HapticFeedback.impactOccurred('light');
-            const statusEl = document.getElementById('status');
-            statusEl.innerText = `Клик: [${r},${c}]...`;
-
+            document.getElementById('status').innerText = `Клик: [${r},${c}]...`;
             try {
-                const response = await fetch(WEBHOOK_URL, {
+                const res = await fetch(WEBHOOK_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        user_id: tg.initDataUnsafe.user?.id || 12345,
+                        user_id: tg.initDataUnsafe?.user?.id || 12345,
                         move: { row: r, col: c },
                         current_board: gameState
                     })
                 });
-
-                const result = await response.json();
-                
-                if (result.message) {
-                    statusEl.innerText = result.message;
-                }
-                
-                if (result.new_board) {
-                    gameState = result.new_board;
+                const data = await res.json();
+                if (data.message) document.getElementById('status').innerText = data.message;
+                if (data.new_board) {
+                    gameState = data.new_board;
                     drawBoard();
                 }
             } catch (e) {
-                statusEl.innerText = "Ошибка: " + e.message;
+                document.getElementById('status').innerText = "Ошибка n8n";
             }
         }
 
-        // Инициализация игры
-        document.getElementById('status').innerText = "Игрок: " + (tg.initDataUnsafe.user?.first_name || "Guest");
         drawBoard();
     </script>
 </body>
