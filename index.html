@@ -119,9 +119,10 @@ async function handleClick(r, c) {
     isLoading = true;
 
     const payload = {
-        user_id: USER_ID,
-        move: { row: r, col: c }
-    };
+    user_id: USER_ID,
+    move: { row: r, col: c },
+    board: gameState
+};
 
     log("SEND: " + JSON.stringify(payload));
     setStatus("sending...");
