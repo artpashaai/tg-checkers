@@ -1,100 +1,178 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <style>
-        body { background: #1a1a1a; color: white; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; font-family: sans-serif; }
-        #board { display: grid; grid-template-columns: repeat(8, 45px); grid-template-rows: repeat(8, 45px); border: 3px solid #555; background: #555; }
-        .cell { width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-        .white-cell { background: #eeeed2; }
-        .black-cell { background: #769656; }
-        .piece { width: 35px; height: 35px; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.5); pointer-events: none; }
-        .white-p { background: #fff; border: 1px solid #ccc; }
-        .black-p { background: #333; border: 1px solid #000; }
-        #status { margin-bottom: 15px; font-weight: bold; text-align: center; color: #4caf50; min-height: 20px; font-size: 14px; }
-    </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+    background: #1a1a1a;
+    color: white;
+    font-family: sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#board {
+    display: grid;
+    grid-template-columns: repeat(8, 50px);
+    margin-top: 20px;
+}
+
+.cell {
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.white { background: #eee; }
+.black { background: #666; }
+
+.piece {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+}
+
+.white-p { background: white; }
+.black-p { background: black; }
+
+#log {
+    margin-top: 20px;
+    width: 90%;
+    max-width: 600px;
+    height: 200px;
+    overflow-y: auto;
+    background: #111;
+    padding: 10px;
+    font-size: 12px;
+}
+</style>
 </head>
+
 <body>
-    <div id="status">Ваш ход (белые)</div>
-    <div id="board"></div>
 
-    <script>
-        const tg = window.Telegram.WebApp;
-        tg.ready(); 
-        tg.expand();
+<h3>TEST CHECKERS</h3>
+<div id="status">init...</div>
+<div id="board"></div>
 
-        const WEBHOOK_URL = 'https://artpashaai.app.n8n.cloud/webhook-test/checkers-move';
+<div id="log"></div>
 
-        let gameState = [
-            [0,2,0,2,0,2,0,2], [2,0,2,0,2,0,2,0], [0,2,0,2,0,2,0,2],
-            [0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0],
-            [1,0,1,0,1,0,1,0], [0,1,0,1,0,1,0,1], [1,0,1,0,1,0,1,0]
-        ];
+<script>
+const WEBHOOK_URL = "https://artpashaai.app.n8n.cloud/webhook-test/checkers-move";
+const USER_ID = 12345;
 
-        function drawBoard() {
-            const boardElement = document.getElementById('board');
-            if (!boardElement) return; // Защита: если элемент еще не создан
-            
-            boardElement.innerHTML = '';
-            for (let r = 0; r < 8; r++) {
-                for (let c = 0; c < 8; c++) {
-                    const cell = document.createElement('div');
-                    cell.className = `cell ${(r + c) % 2 === 0 ? 'white-cell' : 'black-cell'}`;
-                    cell.setAttribute('data-row', r);
-                    cell.setAttribute('data-col', c);
-                    cell.onclick = () => onCellClick(r, c);
-                    
-                    if (gameState[r] && gameState[r][c] !== 0) {
-                        const piece = document.createElement('div');
-                        piece.className = `piece ${gameState[r][c] === 1 ? 'white-p' : 'black-p'}`;
-                        cell.appendChild(piece);
-                    }
-                    boardElement.appendChild(cell);
-                }
+let isLoading = false;
+
+let gameState = [
+    [0,2,0,2,0,2,0,2],
+    [2,0,2,0,2,0,2,0],
+    [0,2,0,2,0,2,0,2],
+    [0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0],
+    [1,0,1,0,1,0,1,0],
+    [0,1,0,1,0,1,0,1],
+    [1,0,1,0,1,0,1,0]
+];
+
+function log(msg) {
+    const el = document.getElementById("log");
+    el.innerHTML += `<div>> ${msg}</div>`;
+    el.scrollTop = el.scrollHeight;
+}
+
+function setStatus(text) {
+    document.getElementById("status").innerText = text;
+}
+
+function drawBoard() {
+    const board = document.getElementById("board");
+    board.innerHTML = "";
+
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            const cell = document.createElement("div");
+            cell.className = "cell " + ((r + c) % 2 ? "black" : "white");
+
+            cell.onclick = () => handleClick(r, c);
+
+            if (gameState[r][c] !== 0) {
+                const piece = document.createElement("div");
+                piece.className = "piece " + (gameState[r][c] === 1 ? "white-p" : "black-p");
+                cell.appendChild(piece);
+            }
+
+            board.appendChild(cell);
+        }
+    }
+}
+
+async function handleClick(r, c) {
+    if (isLoading) return;
+
+    isLoading = true;
+
+    const payload = {
+        user_id: USER_ID,
+        move: { row: r, col: c }
+    };
+
+    log("SEND: " + JSON.stringify(payload));
+    setStatus("sending...");
+
+    try {
+        const res = await fetch(WEBHOOK_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+
+        log("STATUS: " + res.status);
+
+        const text = await res.text();
+        log("RAW: " + text);
+
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch {
+            setStatus("bad json");
+            isLoading = false;
+            return;
+        }
+
+        if (data.message) {
+            setStatus(data.message);
+        }
+
+        if (data.new_board) {
+            if (typeof data.new_board === "string") {
+                data.new_board = JSON.parse(data.new_board);
+            }
+
+            if (Array.isArray(data.new_board)) {
+                gameState = data.new_board;
+                drawBoard();
+            } else {
+                log("INVALID BOARD");
             }
         }
 
-        async function onCellClick(r, c) {
-            tg.HapticFeedback.impactOccurred('light');
-            const statusLabel = document.getElementById('status');
-            statusLabel.innerText = "Обмен данными...";
+    } catch (e) {
+        log("ERROR: " + e.message);
+        setStatus("network error");
+    }
 
-            try {
-                const response = await fetch(WEBHOOK_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        user_id: tg.initDataUnsafe.user?.id || 12345, 
-                        move: { row: r, col: c } 
-                    })
-                });
+    isLoading = false;
+}
 
-                const data = await response.json();
-                
-                if (data.message) {
-                    statusLabel.innerText = data.message;
-                }
+drawBoard();
+setStatus("ready");
+</script>
 
-                if (data.new_board) {
-                    let newBoard = data.new_board;
-                    if (typeof newBoard === 'string') {
-                        try { newBoard = JSON.parse(newBoard); } catch(e) {}
-                    }
-                    if (Array.isArray(newBoard)) {
-                        gameState = newBoard;
-                        drawBoard();
-                    }
-                }
-            } catch (e) {
-                statusLabel.innerText = "Ошибка сети";
-                console.error(e);
-            }
-        }
-
-        // Запуск отрисовки только после полной загрузки DOM
-        window.onload = drawBoard;
-    </script>
 </body>
 </html>
