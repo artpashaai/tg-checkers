@@ -100,9 +100,11 @@ function drawBoard() {
 
             cell.onclick = () => handleClick(r, c);
 
-            if (gameState[r][c] !== 0) {
+            const value = gameState[r][c];
+
+            if (value !== 0) {
                 const piece = document.createElement("div");
-                piece.className = "piece " + (gameState[r][c] === 1 ? "white-p" : "black-p");
+                piece.className = "piece " + (value === 1 ? "white-p" : "black-p");
                 cell.appendChild(piece);
             }
 
@@ -133,33 +135,25 @@ async function handleClick(r, c) {
 
         log("STATUS: " + res.status);
 
-        const text = await res.text();
-        log("RAW: " + text);
+        const data = await res.json();
+        log("JSON: " + JSON.stringify(data));
 
-        let data;
-        try {
-            data = JSON.parse(text);
-        } catch {
-            setStatus("bad json");
-            isLoading = false;
-            return;
-        }
-
+        // ✅ если есть сообщение
         if (data.message) {
             setStatus(data.message);
         }
 
-        if (data.new_board) {
-            if (typeof data.new_board === "string") {
-                data.new_board = JSON.parse(data.new_board);
-            }
-
-            if (Array.isArray(data.new_board)) {
-                gameState = data.new_board;
+        // ✅ ГЛАВНОЕ: обновление доски
+        if (data.board) {
+            if (Array.isArray(data.board)) {
+                gameState = data.board;
                 drawBoard();
+                log("BOARD UPDATED");
             } else {
-                log("INVALID BOARD");
+                log("INVALID BOARD FORMAT");
             }
+        } else {
+            log("NO BOARD IN RESPONSE");
         }
 
     } catch (e) {
