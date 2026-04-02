@@ -41,15 +41,8 @@ body {
 .white-p { background: white; }
 .black-p { background: black; }
 
-#log {
-    margin-top: 20px;
-    width: 90%;
-    max-width: 600px;
-    height: 200px;
-    overflow-y: auto;
-    background: #111;
-    padding: 10px;
-    font-size: 12px;
+#status {
+    margin-top: 10px;
 }
 </style>
 </head>
@@ -57,16 +50,11 @@ body {
 <body>
 
 <h3>TEST CHECKERS</h3>
-<div id="status">init...</div>
+<div id="status">ready</div>
 <div id="board"></div>
-
-<div id="log"></div>
 
 <script>
 const WEBHOOK_URL = "https://artpashaai.app.n8n.cloud/webhook/checkers-move";
-const USER_ID = 12345;
-
-let isLoading = false;
 
 let gameState = [
     [0,2,0,2,0,2,0,2],
@@ -78,16 +66,6 @@ let gameState = [
     [0,1,0,1,0,1,0,1],
     [1,0,1,0,1,0,1,0]
 ];
-
-function log(msg) {
-    const el = document.getElementById("log");
-    el.innerHTML += `<div>> ${msg}</div>`;
-    el.scrollTop = el.scrollHeight;
-}
-
-function setStatus(text) {
-    document.getElementById("status").innerText = text;
-}
 
 function drawBoard() {
     const board = document.getElementById("board");
@@ -114,59 +92,47 @@ function drawBoard() {
 }
 
 async function handleClick(r, c) {
-    if (isLoading) return;
-
-    isLoading = true;
-
-    const payload = {
-    user_id: USER_ID,
-    move: { row: r, col: c },
-    board: gameState
-};
-
-    log("SEND: " + JSON.stringify(payload));
-    setStatus("sending...");
+    const status = document.getElementById("status");
+    status.innerText = "sending...";
 
     try {
-        const res = await fetch(WEBHOOK_URL, {
+        const response = await fetch(WEBHOOK_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
+            body: JSON.stringify({
+                user_id: 12345,
+                move: { row: r, col: c },
+                board: gameState
+            })
         });
 
-        log("STATUS: " + res.status);
+        const text = await response.text();
+        console.log("RAW RESPONSE:", text);
 
-        const data = await res.json();
-        log("JSON: " + JSON.stringify(data));
-
-        // ✅ если есть сообщение
-        if (data.message) {
-            setStatus(data.message);
+        let data = null;
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            status.innerText = "server returned empty/invalid JSON";
+            return;
         }
 
-        // ✅ ГЛАВНОЕ: обновление доски
-        if (data.board) {
-            if (Array.isArray(data.board)) {
-                gameState = data.board;
-                drawBoard();
-                log("BOARD UPDATED");
-            } else {
-                log("INVALID BOARD FORMAT");
-            }
-        } else {
-            log("NO BOARD IN RESPONSE");
+        if (data.message) {
+            status.innerText = data.message;
+        }
+
+        if (data.board && Array.isArray(data.board)) {
+            gameState = data.board;
+            drawBoard();
         }
 
     } catch (e) {
-        log("ERROR: " + e.message);
-        setStatus("network error");
+        console.error(e);
+        status.innerText = "network error";
     }
-
-    isLoading = false;
 }
 
 drawBoard();
-setStatus("ready");
 </script>
 
 </body>
